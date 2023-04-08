@@ -4,7 +4,14 @@ use std::{
 };
 
 use regex::Regex;
-use traq_ws_bot::events::payload::MessageCreated;
+use traq_ws_bot::{
+    events::{
+        common,
+        payload::{DirectMessageCreated, MessageCreated},
+    },
+    openapi::{self, models::PostMessageRequest},
+    utils::{create_configuration, is_mentioned_message},
+};
 
 use crate::{Message, Operation, Resource, TimerState};
 
@@ -16,17 +23,46 @@ pub enum Parsed {
 }
 
 const DEFAULT_MESSAGE: &str = "時間になりました :blob_bongo:";
+const SELF_USER_ID: &str = "d352688f-a656-4444-8c5f-caa517e9ea1b";
+
+/// like !{\"type\":\"user\",\"raw\":\"@BOT_STimer\",\"id\":\"d352688f-a656-4444-8c5f-caa517e9ea1b\"}
+const MENTION_REGEX: &str =
+    r#"!\{"type":"user","raw":"(?:[^\\"]|\\.)+","id":"d352688f-a656-4444-8c5f-caa517e9ea1b"\}"#;
 
 #[allow(clippy::redundant_allocation)]
-pub async fn on_message(payload: MessageCreated, resource: Arc<Arc<Resource>>) {
-    if payload.message.user.bot {
+async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resource>>) {
+    log::debug!("Received message: {:?}", message);
+    if message.user.bot {
         return;
     }
 
-    let content = payload.message.text;
-    let parsed = match parse(content) {
+    let (content, has_mention) = if is_mentioned_message(&message, SELF_USER_ID) {
+        let content = Regex::new(MENTION_REGEX)
+            .unwrap()
+            .replace_all(&message.text, "")
+            .to_string();
+        (content, true)
+    } else {
+        (message.text, false)
+    };
+    let parsed = match parse(content, !has_mention) {
         Ok(parsed) => parsed,
-        Err(_) => return,
+        Err(e) => {
+            let configuration = create_configuration(resource.token.clone());
+            let res = openapi::apis::message_api::post_message(
+                &configuration,
+                &message.channel_id,
+                Some(PostMessageRequest {
+                    content: e,
+                    embed: None,
+                }),
+            )
+            .await;
+            if let Err(e) = res {
+                log::error!("Failed to post message: {:?}", e);
+            }
+            return;
+        }
     };
 
     match parsed {
@@ -34,9 +70,9 @@ pub async fn on_message(payload: MessageCreated, resource: Arc<Arc<Resource>>) {
             let message = Message {
                 message: notify_message,
                 time,
-                message_uuid: payload.message.id,
-                channel_id: payload.message.channel_id,
-                user_id: payload.message.user.id,
+                message_uuid: message.id,
+                channel_id: message.channel_id,
+                user_id: message.user.name,
             };
             resource.tx.send(Operation::Add(message)).await.unwrap();
         }
@@ -65,6 +101,15 @@ pub async fn on_message(payload: MessageCreated, resource: Arc<Arc<Resource>>) {
     }
 }
 
+#[allow(clippy::redundant_allocation)]
+pub async fn on_message(payload: MessageCreated, resource: Arc<Arc<Resource>>) {
+    message_like_handler(payload.message, resource).await;
+}
+#[allow(clippy::redundant_allocation)]
+pub async fn on_direct_message(payload: DirectMessageCreated, resource: Arc<Arc<Resource>>) {
+    message_like_handler(payload.message, resource).await;
+}
+
 const ADD_COMMAND: [&str; 5] = ["+", "add", "a", "set", "s"];
 const REMOVE_COMMAND: [&str; 5] = ["-", "remove", "r", "delete", "d"];
 const LIST_COMMAND: [&str; 2] = ["list", "l"];
@@ -72,9 +117,27 @@ const LIST_COMMAND: [&str; 2] = ["list", "l"];
 /// like https://q.trap.jp/messages/6bb86c45-65d5-458f-83c0-57116d81eca1
 const MESSAGE_REGEX: &str = r#"(?:https?)?://q\.trap\.jp/messages/(?P<uuid>[0-9a-f-]+)"#;
 
-fn parse(content: String) -> Result<Parsed, String> {
+fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
     let content = content.trim();
     let splitted = content.split_whitespace().collect::<Vec<_>>();
+
+    let (content, splitted) = if need_timer_prefix {
+        if splitted.get(0) != Some(&"timer") {
+            return Err(String::new());
+        }
+
+        (
+            content.trim_start_matches("timer").trim(),
+            splitted[1..].to_vec(),
+        )
+    } else if splitted.get(0) == Some(&"timer") {
+        (
+            content.trim_start_matches("timer").trim(),
+            splitted[1..].to_vec(),
+        )
+    } else {
+        (content, splitted)
+    };
 
     for command in ADD_COMMAND.iter() {
         if splitted[0] != *command {

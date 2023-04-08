@@ -58,22 +58,25 @@ async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
 
+    let token = std::env::var("BOT_ACCESS_TOKEN").expect("BOT_ACCESS_TOKEN is not set");
+
     let (tx, rx) = mpsc::channel(400);
 
     let timers = Arc::new(Mutex::new(HashMap::new()));
 
-    let bot = builder("")
+    let bot = builder(&token)
         .insert_resource(Arc::new(Resource {
             tx: tx.clone(),
-            token: String::new(),
+            token: token.clone(),
             timers: timers.clone(),
         }))
         .on_message_created_with_resource(handler::on_message)
+        .on_direct_message_created_with_resource(handler::on_direct_message)
         .build();
 
     let bot_process = bot.start();
 
-    let mut timer = Timer::new(String::new(), rx, timers);
+    let mut timer = Timer::new(token.clone(), rx, timers);
     let timer_process = timer.run();
 
     tokio::select! {
