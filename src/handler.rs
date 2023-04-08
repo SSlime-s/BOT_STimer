@@ -122,7 +122,7 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
     let splitted = content.split_whitespace().collect::<Vec<_>>();
 
     let (content, splitted) = if need_timer_prefix {
-        if splitted.get(0) != Some(&"timer") {
+        if splitted.first() != Some(&"timer") {
             return Err(String::new());
         }
 
@@ -130,7 +130,7 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
             content.trim_start_matches("timer").trim(),
             splitted[1..].to_vec(),
         )
-    } else if splitted.get(0) == Some(&"timer") {
+    } else if splitted.first() == Some(&"timer") {
         (
             content.trim_start_matches("timer").trim(),
             splitted[1..].to_vec(),
