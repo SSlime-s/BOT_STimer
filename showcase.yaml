@@ -5,8 +5,8 @@ startup: |-
   tar -xf git-lfs-linux-amd64-v3.3.0.tar.gz
   ./git-lfs-3.3.0/install.sh
   git lfs install
-  git pull "https://SSlime:${GIT_ACCESS_TOKEN}@git pull https://SSlime:${GIT_ACCESS_TOKEN}@git.trap.jp/SSlime/BOT_STimer.git" master
-  git lfs pull
+  git pull "https://SSlime:${GIT_ACCESS_TOKEN}@git.trap.jp/SSlime/BOT_STimer.git" master
+  git lfs pull "https://SSlime:${GIT_ACCESS_TOKEN}@git.trap.jp/SSlime/BOT_STimer.git" master
 
 entrypoint: "./target/x86_64-unknown-linux-musl/release/bot-simple-timer"
 
