@@ -29,6 +29,8 @@ const SELF_USER_ID: &str = "d352688f-a656-4444-8c5f-caa517e9ea1b";
 const MENTION_REGEX: &str =
     r#"!\{"type":"user","raw":"(?:[^\\"]|\\.)+","id":"d352688f-a656-4444-8c5f-caa517e9ea1b"\}"#;
 
+const COMMAND_NOT_FOUND_MESSAGE: &str = "コマンドが見つかりません :eyes_komatta:";
+
 #[allow(clippy::redundant_allocation)]
 async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resource>>) {
     log::debug!("Received message: {:?}", message);
@@ -62,8 +64,25 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
                 log::error!("Failed to post message: {:?}", e);
             }
             return;
-        },
-        Err(None) => return,
+        }
+        Err(None) => {
+            if has_mention {
+                let configuration = create_configuration(resource.token.clone());
+                let res = openapi::apis::message_api::post_message(
+                    &configuration,
+                    &message.channel_id,
+                    Some(PostMessageRequest {
+                        content: COMMAND_NOT_FOUND_MESSAGE.to_string(),
+                        embed: None,
+                    }),
+                )
+                .await;
+                if let Err(e) = res {
+                    log::error!("Failed to post message: {:?}", e);
+                }
+            }
+            return;
+        }
     };
 
     match parsed {
@@ -205,7 +224,7 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, Option<Stri
         return Ok(Parsed::List);
     }
 
-    Err(Some("コマンドが見つかりません :eyes_komatta:".to_string()))
+    Err(Some(COMMAND_NOT_FOUND_MESSAGE.to_string()))
 }
 
 /// like 1w2d3h4m5s
