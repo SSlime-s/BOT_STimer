@@ -160,7 +160,7 @@ impl Timer {
                 }
             }
             Operation::Remove(message_uuid, trigger_message_uuid) => {
-                let mut is_removed = false;
+                let is_removed;
                 {
                     let mut timer_states = self.timer_states.lock().await;
                     let state = timer_states.get(&message_uuid).cloned();
