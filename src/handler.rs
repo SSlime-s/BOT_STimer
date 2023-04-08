@@ -113,7 +113,7 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
         Parsed::Remove(message_uuid) => {
             resource
                 .tx
-                .send(Operation::Remove(message_uuid))
+                .send(Operation::Remove(message_uuid, message.id))
                 .await
                 .unwrap();
         }

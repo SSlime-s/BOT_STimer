@@ -51,7 +51,8 @@ impl Ord for Message {
 #[derive(Debug, Clone)]
 pub enum Operation {
     Add(Message),
-    Remove(String),
+    /// (target_message_uuid, trigger_message_uuid)
+    Remove(String, String),
 }
 
 #[tokio::main]

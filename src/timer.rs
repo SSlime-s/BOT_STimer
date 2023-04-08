@@ -13,8 +13,8 @@ use crate::{Message, Operation, TimerState, Timers};
 
 const THUMBS_UP_ID: &str = "269095e6-c71c-4887-afb0-e42b5e2ac73b";
 const KAN_ID: &str = "68c4cc50-487d-44a1-ade3-0808023037b8";
+const GIT_WORKFLOW_SUCCESS_ID: &str = "57d759f1-7b50-4b56-bb5b-b983d9ec3bd4";
 const GIT_WORKFLOW_CANCEL_ID: &str = "13248e15-240f-4d8c-8c7a-47e84e773702";
-#[allow(dead_code)]
 const GIT_WORKFLOW_FAIL_ID: &str = "b3c6a7c7-aeb8-4f45-aee8-380c245089db";
 
 #[derive(Debug)]
@@ -159,17 +159,29 @@ impl Timer {
                     log::error!("Failed to add stamp: {:?}", e);
                 }
             }
-            Operation::Remove(message_uuid) => {
+            Operation::Remove(message_uuid, trigger_message_uuid) => {
                 let mut is_removed = false;
-                self.timer_states
-                    .lock()
-                    .await
-                    .entry(message_uuid.clone())
-                    .and_modify(|e| {
-                        is_removed = *e == TimerState::Removed;
-                        *e = TimerState::Removed;
-                    });
+                {
+                    let mut timer_states = self.timer_states.lock().await;
+                    let state = timer_states.get(&message_uuid).cloned();
+                    if let Some(state) = state {
+                        is_removed = state == TimerState::Removed;
+                        timer_states.insert(message_uuid.clone(), TimerState::Removed);
+                    } else {
+                        is_removed = true;
+                    }
+                }
                 if is_removed {
+                    let configuration = create_configuration(&self.token);
+                    let res = openapi::apis::stamp_api::add_message_stamp(
+                        &configuration,
+                        &trigger_message_uuid,
+                        GIT_WORKFLOW_FAIL_ID,
+                        Some(PostMessageStampRequest { count: 1 }),
+                    );
+                    if let Err(e) = res.await {
+                        log::error!("Failed to add stamp: {:?}", e);
+                    }
                     return;
                 }
                 let configuration = create_configuration(&self.token);
@@ -185,6 +197,15 @@ impl Timer {
                     &configuration,
                     &message_uuid,
                     GIT_WORKFLOW_CANCEL_ID,
+                    Some(PostMessageStampRequest { count: 1 }),
+                );
+                if let Err(e) = res.await {
+                    log::error!("Failed to add stamp: {:?}", e);
+                }
+                let res = openapi::apis::message_api::add_message_stamp(
+                    &configuration,
+                    &trigger_message_uuid,
+                    GIT_WORKFLOW_SUCCESS_ID,
                     Some(PostMessageStampRequest { count: 1 }),
                 );
                 if let Err(e) = res.await {
