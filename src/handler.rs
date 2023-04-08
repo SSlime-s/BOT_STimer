@@ -256,7 +256,7 @@ pub async fn on_direct_message(payload: DirectMessageCreated, resource: Arc<Arc<
 
 const ADD_COMMAND: [&str; 5] = ["+", "add", "a", "set", "s"];
 const REMOVE_COMMAND: [&str; 5] = ["-", "remove", "r", "delete", "d"];
-const LIST_COMMAND: [&str; 2] = ["list", "l"];
+const LIST_COMMAND: [&str; 3] = ["list", "l", "ls"];
 
 /// like https://q.trap.jp/messages/6bb86c45-65d5-458f-83c0-57116d81eca1
 const MESSAGE_REGEX: &str = r#"(?:https?)?://q\.trap\.jp/messages/(?P<uuid>[0-9a-f-]+)"#;
