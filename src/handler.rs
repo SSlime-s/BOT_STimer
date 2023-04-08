@@ -9,7 +9,13 @@ use traq_ws_bot::{
         common,
         payload::{DirectMessageCreated, MessageCreated},
     },
-    openapi::{self, models::PostMessageRequest},
+    openapi::{
+        self,
+        models::{
+            PostBotActionJoinRequest, PostBotActionLeaveRequest, PostMessageRequest,
+            PostMessageStampRequest,
+        },
+    },
     utils::{create_configuration, is_mentioned_message},
 };
 
@@ -20,9 +26,13 @@ pub enum Parsed {
     Add(String, SystemTime),
     Remove(String),
     List,
+    Join,
+    Leave,
 }
 
 const DEFAULT_MESSAGE: &str = "時間になりました :blob_bongo:";
+/// NOTE: **not** equal user id
+const SELF_ID: &str = "c3967e92-e752-48e3-9b3d-1eb5b4e19341";
 const SELF_USER_ID: &str = "d352688f-a656-4444-8c5f-caa517e9ea1b";
 
 /// like !{\"type\":\"user\",\"raw\":\"@BOT_STimer\",\"id\":\"d352688f-a656-4444-8c5f-caa517e9ea1b\"}
@@ -30,6 +40,8 @@ const MENTION_REGEX: &str =
     r#"!\{"type":"user","raw":"(?:[^\\"]|\\.)+","id":"d352688f-a656-4444-8c5f-caa517e9ea1b"\}"#;
 
 const COMMAND_NOT_FOUND_MESSAGE: &str = "コマンドが見つかりません :eyes_komatta:";
+
+const WAVE_ID: &str = "54e37bdc-7f8d-4fe9-aaf8-6173b97d0607";
 
 #[allow(clippy::redundant_allocation)]
 async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resource>>) {
@@ -47,7 +59,7 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
     } else {
         (message.text, false)
     };
-    let parsed = match parse(content, !has_mention) {
+    let parsed = match parse(content, has_mention) {
         Ok(parsed) => parsed,
         Err(Some(e)) => {
             let configuration = create_configuration(resource.token.clone());
@@ -118,6 +130,68 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
             messages.sort();
             todo!()
         }
+        Parsed::Join => {
+            let configuration = create_configuration(resource.token.clone());
+            let channel_id_uuid = uuid::Uuid::parse_str(&message.channel_id);
+            if let Err(e) = channel_id_uuid {
+                log::error!("Failed to parse channel id: {:?}", e);
+                return;
+            }
+            let res = openapi::apis::bot_api::let_bot_join_channel(
+                &configuration,
+                SELF_ID,
+                Some(PostBotActionJoinRequest {
+                    channel_id: channel_id_uuid.unwrap(),
+                }),
+            )
+            .await;
+            if let Err(e) = res {
+                log::error!("Failed to join channel: {:?}", e);
+            }
+
+            let res = openapi::apis::message_api::post_message(
+                &configuration,
+                &message.channel_id,
+                Some(PostMessageRequest {
+                    content: "参加しました :blob_pyon:".to_string(),
+                    embed: None,
+                }),
+            )
+            .await;
+            if let Err(e) = res {
+                log::error!("Failed to post message: {:?}", e);
+            }
+        }
+        Parsed::Leave => {
+            let configuration = create_configuration(resource.token.clone());
+            let channel_id_uuid = uuid::Uuid::parse_str(&message.channel_id);
+            if let Err(e) = channel_id_uuid {
+                log::error!("Failed to parse channel id: {:?}", e);
+                return;
+            }
+            let res = openapi::apis::bot_api::let_bot_leave_channel(
+                &configuration,
+                SELF_ID,
+                Some(PostBotActionLeaveRequest {
+                    channel_id: channel_id_uuid.unwrap(),
+                }),
+            )
+            .await;
+            if let Err(e) = res {
+                log::error!("Failed to leave channel: {:?}", e);
+            }
+
+            let res = openapi::apis::stamp_api::add_message_stamp(
+                &configuration,
+                &message.id,
+                WAVE_ID,
+                Some(PostMessageStampRequest { count: 0 }),
+            )
+            .await;
+            if let Err(e) = res {
+                log::error!("Failed to post message: {:?}", e);
+            }
+        }
     }
 }
 
@@ -137,11 +211,20 @@ const LIST_COMMAND: [&str; 2] = ["list", "l"];
 /// like https://q.trap.jp/messages/6bb86c45-65d5-458f-83c0-57116d81eca1
 const MESSAGE_REGEX: &str = r#"(?:https?)?://q\.trap\.jp/messages/(?P<uuid>[0-9a-f-]+)"#;
 
-fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, Option<String>> {
+fn parse(content: String, is_mentioned: bool) -> Result<Parsed, Option<String>> {
     let content = content.trim();
     let splitted = content.split_whitespace().collect::<Vec<_>>();
 
-    let (content, splitted) = if need_timer_prefix {
+    if is_mentioned {
+        if splitted.first() == Some(&"join") {
+            return Ok(Parsed::Join);
+        }
+        if splitted.first() == Some(&"leave") {
+            return Ok(Parsed::Leave);
+        }
+    }
+
+    let (content, splitted) = if !is_mentioned {
         if splitted.first() != Some(&"timer") {
             return Err(None);
         }
