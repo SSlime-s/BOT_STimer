@@ -47,7 +47,7 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
     };
     let parsed = match parse(content, !has_mention) {
         Ok(parsed) => parsed,
-        Err(e) => {
+        Err(Some(e)) => {
             let configuration = create_configuration(resource.token.clone());
             let res = openapi::apis::message_api::post_message(
                 &configuration,
@@ -62,7 +62,8 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
                 log::error!("Failed to post message: {:?}", e);
             }
             return;
-        }
+        },
+        Err(None) => return,
     };
 
     match parsed {
@@ -117,13 +118,13 @@ const LIST_COMMAND: [&str; 2] = ["list", "l"];
 /// like https://q.trap.jp/messages/6bb86c45-65d5-458f-83c0-57116d81eca1
 const MESSAGE_REGEX: &str = r#"(?:https?)?://q\.trap\.jp/messages/(?P<uuid>[0-9a-f-]+)"#;
 
-fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
+fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, Option<String>> {
     let content = content.trim();
     let splitted = content.split_whitespace().collect::<Vec<_>>();
 
     let (content, splitted) = if need_timer_prefix {
         if splitted.first() != Some(&"timer") {
-            return Err(String::new());
+            return Err(None);
         }
 
         (
@@ -145,7 +146,7 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
         }
 
         if splitted.len() < 2 {
-            return Err("時間を指定してください".to_string());
+            return Err(Some("時間を指定してください".to_string()));
         }
 
         let duration = parse_duration(splitted[1].to_string())?;
@@ -175,7 +176,7 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
         }
 
         if splitted.len() < 2 {
-            return Err("メッセージのURLを指定してください".to_string());
+            return Err(Some("メッセージのURLを指定してください".to_string()));
         }
 
         let content = content.trim_start_matches(command).trim().to_string();
@@ -185,10 +186,10 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
             .captures_iter(&content)
             .collect::<Vec<_>>();
         if matches.is_empty() {
-            return Err("メッセージのURLを指定してください".to_string());
+            return Err(Some("メッセージのURLを指定してください".to_string()));
         }
         if matches.len() > 1 {
-            return Err("メッセージのURLは1つだけ指定してください".to_string());
+            return Err(Some("メッセージのURLは1つだけ指定してください".to_string()));
         }
 
         let uuid = matches[0]["uuid"].to_string();
@@ -204,7 +205,7 @@ fn parse(content: String, need_timer_prefix: bool) -> Result<Parsed, String> {
         return Ok(Parsed::List);
     }
 
-    Err("コマンドが見つかりません :eyes_komatta:".to_string())
+    Err(Some("コマンドが見つかりません :eyes_komatta:".to_string()))
 }
 
 /// like 1w2d3h4m5s
