@@ -3,6 +3,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use chrono::{DateTime, Local};
 use regex::Regex;
 use traq_ws_bot::{
     events::{
@@ -25,7 +26,8 @@ use crate::{Message, Operation, Resource, TimerState};
 pub enum Parsed {
     Add(String, SystemTime),
     Remove(String),
-    List,
+    /// isAll
+    List(bool),
     Join,
     Leave,
 }
@@ -115,20 +117,68 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
                 .await
                 .unwrap();
         }
-        Parsed::List => {
+        Parsed::List(is_all) => {
             let timers = resource.timers.lock().await;
             let mut messages = timers
                 .iter()
                 .filter_map(|(uuid, state)| {
-                    if *state == TimerState::Idle {
-                        Some(uuid)
+                    if let TimerState::Idle(user_name, end_time) = state {
+                        Some((uuid, user_name, end_time))
                     } else {
                         None
                     }
                 })
+                .filter(|(_, user_name, _)| {
+                    if is_all {
+                        true
+                    } else {
+                        *user_name == &message.user.name
+                    }
+                })
                 .collect::<Vec<_>>();
             messages.sort();
-            todo!()
+            let table_label = format!("{}|終了予定|url|", if is_all { "|設定者" } else { "" });
+            let table_separator = format!("{}|---|---|", if is_all { "|---" } else { "" });
+            let tables = messages
+                .iter()
+                .map(|(uuid, user_name, &end_time)| {
+                    let url = message_url(uuid, true);
+                    let time: DateTime<Local> = end_time.into();
+                    format!(
+                        "{}|{}|{}|",
+                        if is_all {
+                            format!("| :@{}: ", user_name)
+                        } else {
+                            "".to_string()
+                        },
+                        time.format("%Y-%m-%d %H:%M:%S"),
+                        url
+                    )
+                })
+                .collect::<Vec<_>>();
+            let content = if tables.is_empty() {
+                "現在設定されているタイマーはありません :melting_face:".to_owned()
+            } else {
+                format!(
+                    "{}\n{}\n{}",
+                    table_label,
+                    table_separator,
+                    tables.join("\n")
+                )
+            };
+            let configuration = create_configuration(resource.token.clone());
+            let res = openapi::apis::message_api::post_message(
+                &configuration,
+                &message.channel_id,
+                Some(PostMessageRequest {
+                    content,
+                    embed: None,
+                }),
+            )
+            .await;
+            if let Err(e) = res {
+                log::error!("Failed to post message: {:?}", e);
+            }
         }
         Parsed::Join => {
             let configuration = create_configuration(resource.token.clone());
@@ -304,7 +354,11 @@ fn parse(content: String, is_mentioned: bool) -> Result<Parsed, Option<String>> 
             continue;
         }
 
-        return Ok(Parsed::List);
+        if content.contains("-a") {
+            return Ok(Parsed::List(true));
+        }
+
+        return Ok(Parsed::List(false));
     }
 
     Err(Some(COMMAND_NOT_FOUND_MESSAGE.to_string()))
@@ -384,4 +438,12 @@ fn parse_duration(duration: String) -> Result<Duration, String> {
     }
 
     Ok(builder.build())
+}
+
+fn message_url(message_uuid: &str, short: bool) -> String {
+    format!(
+        "{}//q.trap.jp/messages/{}",
+        if short { "" } else { "https:" },
+        message_uuid
+    )
 }

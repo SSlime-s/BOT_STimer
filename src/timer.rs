@@ -81,11 +81,11 @@ impl Timer {
                     .lock()
                     .await
                     .get(&message.message_uuid)
-                    .copied()
+                    .cloned()
             };
             if let Some(state) = timer_state {
                 match state {
-                    TimerState::Idle => {
+                    TimerState::Idle(_, _) => {
                         log::debug!("Timer is idle: {:?}", message);
                         self.timer_states.lock().await.remove(&message.message_uuid);
                         Some(message)
@@ -143,10 +143,10 @@ impl Timer {
     async fn operation(&mut self, operation: Operation) {
         match operation {
             Operation::Add(message) => {
-                self.timer_states
-                    .lock()
-                    .await
-                    .insert(message.message_uuid.clone(), TimerState::Idle);
+                self.timer_states.lock().await.insert(
+                    message.message_uuid.clone(),
+                    TimerState::Idle(message.user_id.clone(), message.time),
+                );
                 self.messages.push(Reverse(message.clone()));
                 let configuration = create_configuration(&self.token);
                 let res = openapi::apis::stamp_api::add_message_stamp(

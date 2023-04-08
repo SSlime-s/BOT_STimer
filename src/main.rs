@@ -16,9 +16,10 @@ pub struct Resource {
     timers: Timers,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TimerState {
-    Idle,
+    /// (user_name, end_time)
+    Idle(String, SystemTime),
     Removed,
 }
 
