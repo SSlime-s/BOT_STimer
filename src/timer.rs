@@ -162,7 +162,11 @@ impl Timer {
                     log::error!("Failed to add stamp: {:?}", e);
                 }
             }
-            Operation::Remove(message_uuid, trigger_message_uuid, user_name) => {
+            Operation::Remove {
+                remove_message_uuid: message_uuid,
+                trigger_message_uuid,
+                trigger_user_name: user_name,
+            } => {
                 let is_removed;
                 {
                     let mut timer_states = self.timer_states.lock().await;

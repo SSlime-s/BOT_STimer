@@ -41,7 +41,8 @@ const SELF_USER_ID: &str = "d352688f-a656-4444-8c5f-caa517e9ea1b";
 const MENTION_REGEX: &str =
     r#"!\{"type":"user","raw":"(?:[^\\"]|\\.)+","id":"d352688f-a656-4444-8c5f-caa517e9ea1b"\}"#;
 
-const SPECIAL_MESSAGE_REGEX: &str = r#"!\{"type":"(user|channel|group)","raw":"(?P<raw>(?:[^\\"]|\\.)+)","id":"(?:[^\\"]|\\.)+"\}"#;
+const SPECIAL_MESSAGE_REGEX: &str =
+    r#"!\{"type":"(user|channel|group)","raw":"(?P<raw>(?:[^\\"]|\\.)+)","id":"(?:[^\\"]|\\.)+"\}"#;
 
 const COMMAND_NOT_FOUND_MESSAGE: &str = "コマンドが見つかりません :eyes_komatta:";
 
@@ -115,11 +116,11 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
         Parsed::Remove(message_uuid) => {
             resource
                 .tx
-                .send(Operation::Remove(
-                    message_uuid,
-                    message.id,
-                    message.user.name,
-                ))
+                .send(Operation::Remove {
+                    remove_message_uuid: message_uuid,
+                    trigger_message_uuid: message.id,
+                    trigger_user_name: message.user.name,
+                })
                 .await
                 .unwrap();
         }
