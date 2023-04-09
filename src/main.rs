@@ -55,7 +55,7 @@ pub enum Operation {
         remove_message_uuid: String,
         trigger_message_uuid: String,
         trigger_user_name: String,
-    }
+    },
 }
 
 #[tokio::main]
