@@ -74,6 +74,8 @@ impl Timer {
         }
     }
 
+    /// messages から 1つ取り出し、timer_states と比較して、有効な場合は Message を返す
+    /// timer_states からは削除する
     async fn consume_top_message(&mut self) -> Option<Message> {
         if let Some(message) = self.messages.pop() {
             let message = message.0;
