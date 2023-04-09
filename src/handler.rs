@@ -41,6 +41,8 @@ const SELF_USER_ID: &str = "d352688f-a656-4444-8c5f-caa517e9ea1b";
 const MENTION_REGEX: &str =
     r#"!\{"type":"user","raw":"(?:[^\\"]|\\.)+","id":"d352688f-a656-4444-8c5f-caa517e9ea1b"\}"#;
 
+const SPECIAL_MESSAGE_REGEX: &str = r#"!\{"type":"(user|channel|group)","raw":"(?P<raw>(?:[^\\"]|\\.)+)","id":"(?:[^\\"]|\\.)+"\}"#;
+
 const COMMAND_NOT_FOUND_MESSAGE: &str = "コマンドが見つかりません :eyes_komatta:";
 
 const WAVE_ID: &str = "54e37bdc-7f8d-4fe9-aaf8-6173b97d0607";
@@ -314,6 +316,10 @@ fn parse(content: String, is_mentioned: bool) -> Result<Parsed, Option<String>> 
             .trim()
             .trim_start_matches(splitted[1])
             .trim()
+            .to_string();
+        let message = Regex::new(SPECIAL_MESSAGE_REGEX)
+            .unwrap()
+            .replace_all(&message, "${raw}")
             .to_string();
 
         return Ok(Parsed::Add(
