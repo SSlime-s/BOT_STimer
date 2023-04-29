@@ -143,7 +143,7 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
                     }
                 })
                 .collect::<Vec<_>>();
-            messages.sort();
+            messages.sort_by_key(|(_, _, end_time)| *end_time);
             let table_label = format!("{}|終了予定|url|", if is_all { "|設定者" } else { "" });
             let table_separator = format!("{}|---|---|", if is_all { "|---" } else { "" });
             let tables = messages
