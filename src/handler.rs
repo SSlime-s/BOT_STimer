@@ -151,6 +151,7 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
                 .map(|(uuid, user_name, &end_time)| {
                     let url = message_url(uuid, true);
                     let time: DateTime<Local> = end_time.into();
+                    let jst_time = time.with_timezone(&chrono_tz::Asia::Tokyo);
                     format!(
                         "{}|{}|{}|",
                         if is_all {
@@ -158,7 +159,7 @@ async fn message_like_handler(message: common::Message, resource: Arc<Arc<Resour
                         } else {
                             "".to_string()
                         },
-                        time.format("%Y-%m-%d %H:%M:%S"),
+                        jst_time.format("%Y-%m-%d %H:%M:%S"),
                         url
                     )
                 })
