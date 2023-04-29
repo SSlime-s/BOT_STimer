@@ -447,6 +447,13 @@ fn parse_duration(duration: String) -> Result<Duration, String> {
             _ => unreachable!(),
         }
     }
+    let rest = duration_regex.replace_all(&duration, "");
+    if !rest.is_empty() {
+        return Err(format!(
+            "不正な時間です: unexpected token {}",
+            rest.chars().next().unwrap()
+        ));
+    }
 
     Ok(builder.build())
 }
