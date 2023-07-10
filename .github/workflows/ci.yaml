@@ -92,7 +92,7 @@ jobs:
         run: cargo clippy # -- -D warnings
 
   doc:
-    if: startsWith(github.ref, 'refs/tags')
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
