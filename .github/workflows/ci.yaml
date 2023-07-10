@@ -159,6 +159,8 @@ jobs:
           git reset --hard
           echo ${{ fromJSON(steps.create-release.outputs.assets)[0].browser_download_url }} > release-url
           git add release-url
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git commit -m "release: ${{ github.ref }}"
       - name: Push Changes
         env:
