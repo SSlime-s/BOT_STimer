@@ -7,12 +7,14 @@ on:
       - "v*.*.*"
 
 env:
-  GITEA_SSH_URL: "ssh://git@git.trap.jp:2200/SSlime/BOT_STimer.git"
   BIN_NAME: "bot-simple-timer"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
