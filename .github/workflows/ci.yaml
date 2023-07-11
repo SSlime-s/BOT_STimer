@@ -147,7 +147,7 @@ jobs:
         with:
           files: |
             target/x86_64-unknown-linux-musl/release/${{ env.BIN_NAME }}
-          tag_name: ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
           body: |
             ${{ github.event.head_commit.message }}
       - name: Checkout for Release
@@ -161,7 +161,7 @@ jobs:
           git add release-url
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git commit -m "release: ${{ github.ref }}"
+          git commit -m "release: ${{ github.ref_name }}"
       - name: Push Changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
